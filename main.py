@@ -6,7 +6,6 @@ from genetic_algorithm import GeneticAlgorithm
 
 
 def main():
-    # Define the activities with their expected enrollment, preferred, and other facilitators
     activities = [
         Activity('SLA100A', 50, ['Glen', 'Lock', 'Banks', 'Zeldin'], ['Numen', 'Richards']),
         Activity('SLA100B', 50, ['Glen', 'Lock', 'Banks', 'Zeldin'], ['Numen', 'Richards']),
@@ -21,7 +20,6 @@ def main():
         Activity('SLA451', 100, ['Tyler', 'Singer', 'Shaw'], ['Zeldin', 'Uther', 'Richards', 'Banks'])
     ]
 
-    # Define the rooms with their capacities
     rooms = [
         Room('Slater 003', 45),
         Room('Roman 216', 30),
@@ -34,29 +32,32 @@ def main():
         Room('Frank 119', 60)
     ]
 
-    # Define the available time slots
     times = ['10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM']
 
-    # Define the facilitators
     facilitators = [
         Facilitator('Lock'), Facilitator('Glen'), Facilitator('Banks'), Facilitator('Richards'),
         Facilitator('Shaw'), Facilitator('Singer'), Facilitator('Uther'), Facilitator('Tyler'),
         Facilitator('Numen'), Facilitator('Zeldin')
     ]
 
-    # Initialize Genetic Algorithm
-    ga = GeneticAlgorithm(population_size=500, mutation_rate=0.01, generations=1000,
-                          activities=activities, rooms=rooms, times=times, facilitators=facilitators)
+    ga = GeneticAlgorithm(
+        population_size=500,
+        mutation_rate=0.01,
+        generations=1000,
+        activities=activities,
+        rooms=rooms,
+        times=times,
+        facilitators=facilitators,
+        temperature=3.0,  # Adjust the temperature for selection pressure
+        elitism_ratio=0.10  # Percentage of top performers to keep
+    )
 
     ga.initialize_population()
 
-    for generation in range(100):
-        print(f"Generation {generation}")
-        ga.evolve_population()
+    # Call evolve_population directly to run the evolution process
+    ga.evolve_population()
 
     print(f"Best schedule fitness: {ga.population[0].fitness}")
-    for activity in ga.population[0].activities:
-        print(activity)
 
 
 if __name__ == '__main__':

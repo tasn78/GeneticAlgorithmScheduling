@@ -1,0 +1,13 @@
+Best Schedule Fitness: 5.899999999999999
+Best Schedule found at Generation: 109
+Activity: SLA100A, Room: Loft 206, Time: 3 PM, Facilitator: Uther
+Activity: SLA100B, Room: Loft 310, Time: 11 AM, Facilitator: Richards
+Activity: SLA191A, Room: Loft 206, Time: 11 AM, Facilitator: Banks
+Activity: SLA191B, Room: Frank 119, Time: 11 AM, Facilitator: Banks
+Activity: SLA201, Room: Beach 201, Time: 2 PM, Facilitator: Uther
+Activity: SLA291, Room: Frank 119, Time: 2 PM, Facilitator: Numen
+Activity: SLA303, Room: Beach 201, Time: 2 PM, Facilitator: Banks
+Activity: SLA304, Room: Beach 301, Time: 2 PM, Facilitator: Lock
+Activity: SLA394, Room: Slater 003, Time: 12 PM, Facilitator: Shaw
+Activity: SLA449, Room: Slater 003, Time: 1 PM, Facilitator: Uther
+Activity: SLA451, Room: Beach 301, Time: 10 AM, Facilitator: Lock
