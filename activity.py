@@ -1,7 +1,5 @@
 # activity.py
 
-# activity.py
-
 class Activity:
     """Represents an activity to be scheduled."""
     def __init__(self, name, expected_enrollment, preferred_facilitators, other_facilitators):

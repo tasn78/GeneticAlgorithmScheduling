@@ -41,15 +41,15 @@ def main():
     ]
 
     ga = GeneticAlgorithm(
-        population_size=500,
+        population_size=2000,
         mutation_rate=0.01,
         generations=1000,
         activities=activities,
         rooms=rooms,
         times=times,
         facilitators=facilitators,
-        temperature=3.0,  # Adjust the temperature for selection pressure
-        elitism_ratio=0.10  # Percentage of top performers to keep
+        temperature=4.0,  # Adjust the temperature for selection pressure
+        elitism_ratio=0.15  # Percentage of top performers to keep
     )
 
     ga.initialize_population()

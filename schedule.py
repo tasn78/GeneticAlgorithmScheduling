@@ -1,26 +1,37 @@
 # schedule.py
 
-def time_to_hour(time_str):
-    """Converts a time string (like '10 AM') to an integer representing the hour (like 10)."""
-    time_mapping = {
-        '10 AM': 10, '11 AM': 11, '12 PM': 12, '1 PM': 13, '2 PM': 14, '3 PM': 15
-    }
-    return time_mapping.get(time_str, 0)
-
+def time_to_hour(time):
+    # Convert either numeric time (0-5) or string time to standard hour format.
+    if isinstance(time, int):
+        # If it's already numeric (0-5), convert to hour
+        time_map = {0: 10, 1: 11, 2: 12, 3: 13, 4: 14, 5: 15}
+        return time_map.get(time, 0)
+    elif isinstance(time, str):
+        # If it's a string format, convert to hour
+        time_mapping = {
+            '10 AM': 10, '11 AM': 11, '12 PM': 12,
+            '1 PM': 13, '2 PM': 14, '3 PM': 15
+        }
+        return time_mapping.get(time, 0)
+    return 0
 
 class ActivityAssignment:
     def __init__(self, activity, room, time, facilitator):
         self.name = activity.name
         self.room = room
-        self.time = time
+        self.time = time  # Keep as numeric (0-5)
         self.facilitator = facilitator
         self.expected_enrollment = activity.expected_enrollment
         self.preferred_facilitators = activity.preferred_facilitators
         self.other_facilitators = activity.other_facilitators
 
     def __repr__(self):
+        # Convert numeric time to string for display
+        time_map = {0: '10 AM', 1: '11 AM', 2: '12 PM',
+                   3: '1 PM', 4: '2 PM', 5: '3 PM'}
+        time_str = time_map.get(self.time, 'Unknown Time')
         return (f"Activity: {self.name}, Room: {self.room.name}, "
-                f"Time: {self.time}, Facilitator: {self.facilitator.name}")
+                f"Time: {time_str}, Facilitator: {self.facilitator.name}")
 
 
 class Schedule:
@@ -35,83 +46,114 @@ class Schedule:
     def calculate_fitness(self):
         """Calculate the fitness of the schedule based on the given constraints."""
         fitness = 0
-
-        # Track room-time combinations to penalize activities scheduled in the same room and time
         room_time_combinations = {}
+        facilitator_time_slots = {}  # Track facilitator assignments per time slot
+        facilitator_total = {}  # Track total activities per facilitator
 
-        # Step 1: Room size penalties and room-time conflicts
+        # First pass: Process each activity
         for activity in self.activities:
-            # Check for same time, same room conflicts
+            # Start with 0 for each activity as specified
+            activity_fitness = 0
+
+            # Check room-time conflicts (-0.5)
             room_time_key = (activity.room.name, activity.time)
-            if room_time_key not in room_time_combinations:
-                room_time_combinations[room_time_key] = 1
-            else:
-                room_time_combinations[room_time_key] += 1
-                fitness -= 0.5  # Penalty for room-time conflict
+            if room_time_key in room_time_combinations:
+                activity_fitness -= 0.5
+            room_time_combinations[room_time_key] = True
 
-            # Room size penalties
+            # Room size checks
             if activity.room.capacity < activity.expected_enrollment:
-                fitness -= 0.5  # Room too small
+                activity_fitness -= 0.5  # Too small
             elif activity.room.capacity > activity.expected_enrollment * 6:
-                fitness -= 0.4  # Room more than 6x enrollment
+                activity_fitness -= 0.4  # > 6 times
             elif activity.room.capacity > activity.expected_enrollment * 3:
-                fitness -= 0.2  # Room more than 3x enrollment
+                activity_fitness -= 0.2  # > 3 times
             else:
-                fitness += 0.3  # Proper room size
+                activity_fitness += 0.3  # Proper size
 
-            # Step 2: Facilitator assignment
+            # Facilitator preference checks
             if activity.facilitator.name in activity.preferred_facilitators:
-                fitness += 0.5  # Preferred facilitator
+                activity_fitness += 0.5  # Preferred
             elif activity.facilitator.name in activity.other_facilitators:
-                fitness += 0.2  # Acceptable facilitator
+                activity_fitness += 0.2  # Other listed
             else:
-                fitness -= 0.1  # Not preferred facilitator
+                activity_fitness -= 0.1  # Not listed
 
-        # Step 3: Facilitator load penalties
-        facilitator_schedule = {}
-        for activity in self.activities:
-            if activity.facilitator not in facilitator_schedule:
-                facilitator_schedule[activity.facilitator] = []
-            facilitator_schedule[activity.facilitator].append(activity.time)
+            # Track facilitator assignments
+            if activity.facilitator.name not in facilitator_time_slots:
+                facilitator_time_slots[activity.facilitator.name] = {}
+            if activity.time not in facilitator_time_slots[activity.facilitator.name]:
+                facilitator_time_slots[activity.facilitator.name][activity.time] = []
+            facilitator_time_slots[activity.facilitator.name][activity.time].append(activity)
 
-        # Step 3: Facilitator load penalties
-        for facilitator, times in facilitator_schedule.items():
-            # Check if facilitator is overseeing more than 4 activities
-            if len(times) > 4:
-                fitness -= 0.5  # Too many activities
+            # Track total activities per facilitator
+            facilitator_total[activity.facilitator.name] = facilitator_total.get(activity.facilitator.name, 0) + 1
 
-            # Check for scheduling conflicts (multiple activities at the same time)
-            for time in times:
-                if times.count(time) > 1:
-                    fitness -= 0.2  # Multiple activities in the same time slot
+            fitness += activity_fitness
 
-            # Check if facilitator is overseeing only 1 or 2 activities (except for Tyler)
-            if len(times) <= 2 and facilitator.name != "Tyler":
-                fitness -= 0.4
+        # Second pass: Facilitator load checks
+        for facilitator, time_slots in facilitator_time_slots.items():
+            # Check activities per time slot
+            for time_slot, activities in time_slots.items():
+                if len(activities) == 1:
+                    fitness += 0.2  # Single activity bonus
+                else:
+                    fitness -= 0.2 * (len(activities) - 1)  # Multiple activities penalty
 
-        # Step 4: SLA 101 and SLA 191 adjustments
-        sla101_times = [time_to_hour(a.time) for a in self.activities if a.name.startswith("SLA101")]
-        sla191_times = [time_to_hour(a.time) for a in self.activities if a.name.startswith("SLA191")]
+            # Check total activities
+            total_activities = facilitator_total[facilitator]
+            if total_activities > 4:
+                fitness -= 0.5  # Overload penalty
+            elif total_activities <= 2 and facilitator != "Tyler":
+                fitness -= 0.4  # Underload penalty
 
-        # SLA 101 conditions
-        if sla101_times and max(sla101_times) - min(sla101_times) > 4:
-            fitness += 0.5  # Sections of SLA 101 more than 4 hours apart
-        if len(set(sla101_times)) < 2:
-            fitness -= 0.5  # Both sections in the same time slot
+            # Check consecutive time slots
+            times = sorted(time_slots.keys())
+            for i in range(len(times) - 1):
+                if times[i + 1] - times[i] == 1:
+                    # Handle like SLA191/101 consecutive rules
+                    for act1 in time_slots[times[i]]:
+                        for act2 in time_slots[times[i + 1]]:
+                            # Apply building separation rules if applicable
+                            if any(act.name.startswith(("SLA191", "SLA101")) for act in [act1, act2]):
+                                in_specific_building = lambda r: r.name.startswith(("Roman", "Beach"))
+                                if in_specific_building(act1.room) != in_specific_building(act2.room):
+                                    fitness -= 0.4
 
-        # SLA 191 conditions
-        if sla191_times and max(sla191_times) - min(sla191_times) > 4:
-            fitness += 0.5  # Sections of SLA 191 more than 4 hours apart
-        if len(set(sla191_times)) < 2:
-            fitness -= 0.5  # Both sections in the same time slot
+        # Third pass: SLA101 and SLA191 specific rules
+        sla101_sections = [a for a in self.activities if a.name.startswith("SLA101")]
+        sla191_sections = [a for a in self.activities if a.name.startswith("SLA191")]
 
-        # Cross-over penalties/bonuses between SLA 101 and SLA 191
-        if any(abs(t1 - t2) == 1 for t1 in sla101_times for t2 in sla191_times):
-            fitness += 0.5  # SLA 101 and SLA 191 are in consecutive time slots
-        if any(abs(t1 - t2) == 1 for t1 in sla101_times for t2 in sla191_times) and (
-                any(a.room.name in ["Roman", "Beach"] for a in self.activities if a.name.startswith("SLA101")) ^
-                any(a.room.name in ["Roman", "Beach"] for a in self.activities if a.name.startswith("SLA191"))
-        ):
-            fitness -= 0.4  # SLA 101 and SLA 191 consecutive but in widely separated rooms
+        # SLA101 rules
+        if len(sla101_sections) == 2:
+            time_diff = abs(sla101_sections[0].time - sla101_sections[1].time)
+            if time_diff > 4:
+                fitness += 0.5  # More than 4 hours apart
+            elif time_diff == 0:
+                fitness -= 0.5  # Same time slot
+
+        # SLA191 rules
+        if len(sla191_sections) == 2:
+            time_diff = abs(sla191_sections[0].time - sla191_sections[1].time)
+            if time_diff > 4:
+                fitness += 0.5  # More than 4 hours apart
+            elif time_diff == 0:
+                fitness -= 0.5  # Same time slot
+
+        # SLA101 and SLA191 relationship rules
+        for sla101 in sla101_sections:
+            for sla191 in sla191_sections:
+                time_diff = abs(sla101.time - sla191.time)
+                if time_diff == 1:  # Consecutive slots
+                    fitness += 0.5
+                    # Check building separation only for consecutive slots
+                    in_specific_building = lambda r: r.name.startswith(("Roman", "Beach"))
+                    if in_specific_building(sla101.room) != in_specific_building(sla191.room):
+                        fitness -= 0.4
+                elif time_diff == 2:  # One hour separation
+                    fitness += 0.25
+                elif time_diff == 0:  # Same time slot
+                    fitness -= 0.25
 
         self.fitness = fitness
+        return fitness
