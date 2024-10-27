@@ -6,6 +6,7 @@ from genetic_algorithm import GeneticAlgorithm
 
 
 def main():
+    # activities, rooms, times and facilitators setup inputting document attributes into ChatGPT
     activities = [
         Activity('SLA100A', 50, ['Glen', 'Lock', 'Banks', 'Zeldin'], ['Numen', 'Richards']),
         Activity('SLA100B', 50, ['Glen', 'Lock', 'Banks', 'Zeldin'], ['Numen', 'Richards']),
@@ -40,21 +41,22 @@ def main():
         Facilitator('Numen'), Facilitator('Zeldin')
     ]
 
+    # Annealing and elitism figures added as recommended by ChatGPT to improve fitness scores
     ga = GeneticAlgorithm(
         population_size=2000,
-        mutation_rate=0.01,
+        mutation_rate=0.03,
         generations=1000,
         activities=activities,
         rooms=rooms,
         times=times,
         facilitators=facilitators,
-        temperature=4.0,  # Adjust the temperature for selection pressure
-        elitism_ratio=0.15  # Percentage of top performers to keep
+        temperature=2.0,  # Adjust the temperature for selection pressure
+        elitism_ratio=0.05  # Percentage of top performers to keep
     )
 
     ga.initialize_population()
 
-    # Call evolve_population directly to run the evolution process
+    # Calls evolve_population to run the evolution process
     ga.evolve_population()
 
     print(f"Best schedule fitness: {ga.population[0].fitness}")

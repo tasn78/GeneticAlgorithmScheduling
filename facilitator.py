@@ -1,7 +1,7 @@
 # facilitator.py
 
+# Facilitators to be scheduled for each activity
 class Facilitator:
-    """Represents a facilitator available for activities."""
     def __init__(self, name):
         self.name = name
 

@@ -1,7 +1,7 @@
 # schedule.py
 
+# Convert either numeric time (0-5) or string time to standard hour format.
 def time_to_hour(time):
-    # Convert either numeric time (0-5) or string time to standard hour format.
     if isinstance(time, int):
         # If it's already numeric (0-5), convert to hour
         time_map = {0: 10, 1: 11, 2: 12, 3: 13, 4: 14, 5: 15}
@@ -15,6 +15,7 @@ def time_to_hour(time):
         return time_mapping.get(time, 0)
     return 0
 
+# Assigns activities to rooms, times, facilitators, enrollments, preferences, etc.
 class ActivityAssignment:
     def __init__(self, activity, room, time, facilitator):
         self.name = activity.name
@@ -25,24 +26,25 @@ class ActivityAssignment:
         self.preferred_facilitators = activity.preferred_facilitators
         self.other_facilitators = activity.other_facilitators
 
+    # Converts numeric time to string for print display
     def __repr__(self):
-        # Convert numeric time to string for display
         time_map = {0: '10 AM', 1: '11 AM', 2: '12 PM',
                    3: '1 PM', 4: '2 PM', 5: '3 PM'}
         time_str = time_map.get(self.time, 'Unknown Time')
         return (f"Activity: {self.name}, Room: {self.room.name}, "
                 f"Time: {time_str}, Facilitator: {self.facilitator.name}")
 
-
+# Schedule class
 class Schedule:
     def __init__(self):
         self.activities = []
         self.fitness = 0
 
+    # Adds an activity to the schedule
     def add_activity(self, activity, room, time, facilitator):
-        """Add an activity to the schedule."""
         self.activities.append(ActivityAssignment(activity, room, time, facilitator))
 
+    # Updated using ChatGPT - combined previous implementation and requirements from instructions
     def calculate_fitness(self):
         """Calculate the fitness of the schedule based on the given constraints."""
         fitness = 0
@@ -52,7 +54,7 @@ class Schedule:
 
         # First pass: Process each activity
         for activity in self.activities:
-            # Start with 0 for each activity as specified
+            # Start with 0 for each activity
             activity_fitness = 0
 
             # Check room-time conflicts (-0.5)

@@ -4,7 +4,7 @@ import numpy as np
 from schedule import Schedule
 import matplotlib.pyplot as plt  # Importing for fitness plotting
 
-
+# Genetic algorithm used for scheduling
 class GeneticAlgorithm:
     def __init__(self, population_size, mutation_rate, generations, activities, rooms, times, facilitators, temperature=2.0, elitism_ratio=0.05):
         self.population_size = population_size
@@ -20,27 +20,28 @@ class GeneticAlgorithm:
         self.temperature = temperature  # Softmax temperature
         self.elitism_ratio = elitism_ratio  # Elitism ratio (e.g., 5%)
 
+    # First population (generation 0) with randomized rooms, times, facilitators and activities
     def initialize_population(self):
-        """Initialize the population with random schedules."""
         self.population = []
         for _ in range(self.population_size):
             schedule = Schedule()
             for activity in self.activities:
                 # Randomly assign room, time, and facilitator
                 random_room = random.choice(self.rooms)
-                random_time = random.randint(0, 5)  # Use numeric time (0 = 10 AM, ..., 5 = 3 PM)
+                random_time = random.randint(0, 5)  # Uses numeric time (0 = 10 AM, ..., 5 = 3 PM)
                 random_facilitator = random.choice(self.facilitators)
                 schedule.add_activity(activity, random_room, random_time, random_facilitator)
-            schedule.calculate_fitness()  # Calculate fitness immediately after initialization
+            schedule.calculate_fitness()  # Calculates fitness immediately after initialization
             self.population.append(schedule)
 
+    # Evolves scheduling population per generation
     def evolve_population(self):
-        """Evolve the population through generations based on fitness with elitism and temperature scaling."""
         best_fitness_over_time = []
         average_fitness_over_time = []
-        last_improvement_gen = 0
-        current_mutation_rate = self.mutation_rate  # Start with initial mutation rate of 0.01
-        baseline_fitness = None  # Baseline to track fitness improvements
+        baseline_fitness_G100 = None  # Baseline to track 1% improvement after generation 100
+        mutation_rate_adjusted = False  # Track if mutation rate has been adjusted at least once
+
+        current_mutation_rate = self.mutation_rate  # Start with the mutation rate defined in main.py
 
         for generation in range(self.generations):
             print(f"Generation {generation}")
@@ -53,25 +54,24 @@ class GeneticAlgorithm:
             best_fitness_over_time.append(best_fitness)
             average_fitness_over_time.append(average_fitness)
 
-            # Set initial baseline fitness in the first generation
-            if generation == 0:
-                baseline_fitness = best_fitness
+            # Set baseline fitness after 100 generations for 1% improvement check
+            if generation == 100:
+                baseline_fitness_G100 = average_fitness
+                improvement_threshold = 0.01 * baseline_fitness_G100  # Set 1% threshold based on generation 100
 
-            # Check for improvement beyond the baseline fitness
-            if best_fitness > baseline_fitness:
-                # If there is an improvement, halve the mutation rate
-                current_mutation_rate /= 2
-                print(f"Improvement found. Adjusting mutation rate to: {current_mutation_rate}")
-                baseline_fitness = best_fitness  # Update the baseline to the new best fitness
+            # Check stopping condition after generation 100
+            if generation > 100 and baseline_fitness_G100:
+                improvement = average_fitness - average_fitness_over_time[-2]
+                if improvement < improvement_threshold:
+                    print(f"Stopping early at generation {generation} due to less than 1% improvement.")
+                    break
 
-            # Track if there has been a significant improvement
-            if generation > 0 and (best_fitness - best_fitness_over_time[last_improvement_gen]) >= 0.01 * best_fitness:
-                last_improvement_gen = generation
-
-            # Early stopping condition
-            if generation - last_improvement_gen > 100:
-                print(f"Stopping early at generation {generation} due to no significant improvement.")
-                break
+            # Adjust mutation rate if there has been significant improvement in best fitness
+            if best_fitness > self.best_fitness * 2.00:  # Check if best fitness improved by at least 100%
+                current_mutation_rate /= 2  # Halve mutation rate only when significant improvement is found
+                print(f"Significant improvement found. Adjusting mutation rate to: {current_mutation_rate}")
+                self.best_fitness = best_fitness  # Update to new best fitness
+                mutation_rate_adjusted = True
 
             # Elitism: preserve the top-performing individuals
             elitism_size = int(self.elitism_ratio * self.population_size)
@@ -110,7 +110,8 @@ class GeneticAlgorithm:
         best_schedule = self.population[0]
         self.print_best_schedule(best_schedule, generation)
 
-    def softmax(self, fitness_values, temperature=1.0):
+    # Used ChatGPT to alter previous code to add temperature - must change manually
+    def softmax(self, fitness_values, temperature=2.0):
         """Apply softmax normalization to fitness values with temperature scaling."""
         scaled_values = np.array(fitness_values) / temperature  # Scale by temperature
         exp_values = np.exp(scaled_values - np.max(scaled_values))  # Shift for numerical stability
@@ -230,7 +231,7 @@ class GeneticAlgorithm:
         return offspring1, offspring2
 
     def mutate(self, schedule):
-        """Intelligent mutation that respects constraints."""
+        """Perform mutation that respects constraints but randomly assigns facilitators."""
         mutation_occurred = False
 
         # Track used room-time combinations
@@ -242,8 +243,7 @@ class GeneticAlgorithm:
 
                 if mutation_type == "room":
                     # Choose rooms that can accommodate the activity
-                    suitable_rooms = [room for room in self.rooms
-                                      if room.capacity >= activity.expected_enrollment]
+                    suitable_rooms = [room for room in self.rooms if room.capacity >= activity.expected_enrollment]
                     if suitable_rooms:
                         new_room = random.choice(suitable_rooms)
                         if (new_room.name, activity.time) not in used_slots:
@@ -253,24 +253,8 @@ class GeneticAlgorithm:
                             mutation_occurred = True
 
                 elif mutation_type == "time":
-                    # Special handling for SLA100 and SLA191 sections
-                    base_name = activity.name[:6]
-                    if base_name in ['SLA100', 'SLA191']:
-                        # Find the other section's time
-                        other_section = next((act for act in schedule.activities
-                                              if act.name.startswith(base_name) and act != activity), None)
-                        if other_section:
-                            # Try to maintain good spacing
-                            possible_times = [t for t in range(6)
-                                              if abs(t - other_section.time) > 2
-                                              and (activity.room.name, t) not in used_slots]
-                        else:
-                            possible_times = [t for t in range(6)
-                                              if (activity.room.name, t) not in used_slots]
-                    else:
-                        possible_times = [t for t in range(6)
-                                          if (activity.room.name, t) not in used_slots]
-
+                    # Choose a new time slot, ensuring it’s different from the current one
+                    possible_times = [t for t in range(6) if (activity.room.name, t) not in used_slots]
                     if possible_times:
                         used_slots.remove((activity.room.name, activity.time))
                         activity.time = random.choice(possible_times)
@@ -278,16 +262,10 @@ class GeneticAlgorithm:
                         mutation_occurred = True
 
                 elif mutation_type == "facilitator":
-                    # Prefer facilitators from preferred or other lists
-                    weighted_facilitators = (
-                            [(f, 3) for f in self.facilitators if f.name in activity.preferred_facilitators] +
-                            [(f, 2) for f in self.facilitators if f.name in activity.other_facilitators] +
-                            [(f, 1) for f in self.facilitators]
-                    )
-                    if weighted_facilitators:
-                        facilitators, weights = zip(*weighted_facilitators)
-                        activity.facilitator = random.choices(facilitators, weights=weights, k=1)[0]
-                        mutation_occurred = True
+                    # Select a new facilitator randomly from the full list
+                    new_facilitator = random.choice(self.facilitators)
+                    activity.facilitator = new_facilitator
+                    mutation_occurred = True
 
         if mutation_occurred:
             schedule.calculate_fitness()
@@ -296,15 +274,23 @@ class GeneticAlgorithm:
 
     def print_best_schedule(self, best_schedule, generation):
         """Print the best schedule to a file and console, including the generation number."""
+        # Sort activities by name and time
+        sorted_activities = sorted(
+            best_schedule.activities,
+            key=lambda activity: (activity.name, activity.time)
+        )
+
         with open('best_schedule.txt', 'w') as file:
             file.write(f"Best Schedule Fitness: {best_schedule.fitness}\n")
             file.write(f"Best Schedule found at Generation: {generation}\n")  # Add generation number
-            for activity in best_schedule.activities:
+            for activity in sorted_activities:
                 time_string = self.convert_time_to_string(activity.time)  # Convert time back to string
                 file.write(
-                    f"Activity: {activity.name}, Room: {activity.room.name}, Time: {time_string}, Facilitator: {activity.facilitator}\n")
+                    f"Activity: {activity.name}, Room: {activity.room.name}, Time: {time_string}, Facilitator: {activity.facilitator}\n"
+                )
                 print(
-                    f"Activity: {activity.name}, Room: {activity.room.name}, Time: {time_string}, Facilitator: {activity.facilitator}")
+                    f"Activity: {activity.name}, Room: {activity.room.name}, Time: {time_string}, Facilitator: {activity.facilitator}"
+                )
 
     def convert_time_to_string(self, time_numeric):
         """Convert numeric time back to a string."""
